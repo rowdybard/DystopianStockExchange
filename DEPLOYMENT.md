@@ -42,7 +42,13 @@ PORT=10000
 
 **Note**: Replace the DATABASE_URL with the actual connection string from your PostgreSQL database in Step 1. Render provides this automatically when you create a PostgreSQL database.
 
-## Step 3: Deploy Frontend Service
+**Optional**: Add `CLIENT_URL` if you plan to have a frontend that makes API calls to this backend.
+
+## Step 3: Deploy Frontend Service (Optional - Phase 2)
+
+**Note**: This step is only needed when you build a frontend. Currently, your client directory only contains a package.json file.
+
+When you're ready to add a frontend:
 
 1. Go to Render Dashboard
 2. Click "New" → "Static Site"
@@ -67,7 +73,7 @@ VITE_API_URL=https://your-backend-service-name.onrender.com
 
 **Note**: Replace `your-backend-service-name` with the actual name you used in Step 2.
 
-## Step 4: Update Backend CORS
+## Step 4: Update Backend CORS (Optional - Phase 2)
 
 After deploying the frontend, update the backend's `CLIENT_URL` environment variable:
 
@@ -115,8 +121,8 @@ CLIENT_URL=https://your-frontend-service-name.onrender.com
 | `DATABASE_URL` | PostgreSQL connection string | Yes | - |
 | `PORT` | Server port | No | `3001` |
 | `NODE_ENV` | Environment | No | `development` |
-| `CLIENT_URL` | Frontend URL for CORS | Yes (prod) | `http://localhost:5173` |
-| `VITE_API_URL` | Backend API URL | Yes (prod) | `http://localhost:3001` |
+| `CLIENT_URL` | Frontend URL for CORS | No (Phase 2) | `http://localhost:5173` |
+| `VITE_API_URL` | Backend API URL | No (Phase 2) | `http://localhost:3001` |
 
 ## Cost Estimation
 
