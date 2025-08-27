@@ -29,6 +29,24 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'Dystopian Exchange Server Running' });
 });
 
+// Root route - API information
+app.get('/', (req, res) => {
+  res.json({
+    message: '🏛️ Dystopian Citizen Exchange API',
+    version: '1.0.0',
+    status: 'Running',
+    endpoints: {
+      health: '/api/health',
+      auth: '/api/auth',
+      citizens: '/api/citizens',
+      votes: '/api/votes',
+      events: '/api/events',
+      leaderboard: '/api/leaderboard'
+    },
+    note: 'This is the backend API. Frontend will be available in Phase 2.'
+  });
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
