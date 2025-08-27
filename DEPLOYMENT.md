@@ -35,16 +35,12 @@
 Add these environment variables in the Render dashboard:
 
 ```
-DB_USER=your_db_user_from_step_1
-DB_HOST=your_db_host_from_step_1
-DB_NAME=dystopian_exchange
-DB_PASSWORD=your_db_password_from_step_1
-DB_PORT=5432
+DATABASE_URL=postgresql://your_db_user:your_db_password@your_db_host:5432/dystopian_exchange
 NODE_ENV=production
 PORT=10000
 ```
 
-**Note**: Replace the DB_* values with the actual connection details from your PostgreSQL database in Step 1.
+**Note**: Replace the DATABASE_URL with the actual connection string from your PostgreSQL database in Step 1. Render provides this automatically when you create a PostgreSQL database.
 
 ## Step 3: Deploy Frontend Service
 
@@ -99,7 +95,7 @@ CLIENT_URL=https://your-frontend-service-name.onrender.com
 ### Common Issues
 
 1. **Database Connection Failed**
-   - Verify all DB_* environment variables are correct
+   - Verify DATABASE_URL environment variable is correct
    - Check if the database is running
    - Ensure the database name exists
 
@@ -116,11 +112,7 @@ CLIENT_URL=https://your-frontend-service-name.onrender.com
 
 | Variable | Description | Required | Default |
 |----------|-------------|----------|---------|
-| `DB_USER` | PostgreSQL username | Yes | - |
-| `DB_HOST` | PostgreSQL host | Yes | - |
-| `DB_NAME` | Database name | Yes | `dystopian_exchange` |
-| `DB_PASSWORD` | PostgreSQL password | Yes | - |
-| `DB_PORT` | PostgreSQL port | No | `5432` |
+| `DATABASE_URL` | PostgreSQL connection string | Yes | - |
 | `PORT` | Server port | No | `3001` |
 | `NODE_ENV` | Environment | No | `development` |
 | `CLIENT_URL` | Frontend URL for CORS | Yes (prod) | `http://localhost:5173` |
