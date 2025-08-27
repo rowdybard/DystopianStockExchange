@@ -1,0 +1,21 @@
+{
+  "name": "dystopian-citizen-exchange",
+  "version": "1.0.0",
+  "description": "A satirical, dystopian stock exchange where each player is a Citizen Ticket",
+  "main": "server/index.js",
+  "scripts": {
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "server": "cd server && npm run dev",
+    "client": "cd client && npm run dev",
+    "build": "cd client && npm run build",
+    "install-all": "npm install && cd server && npm install && cd ../client && npm install",
+    "db:setup": "cd server && npm run db:setup",
+    "db:migrate": "cd server && npm run db:migrate"
+  },
+  "keywords": ["game", "dystopian", "stock-exchange", "multiplayer"],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
