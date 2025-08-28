@@ -66,8 +66,16 @@ router.post('/register', async (req, res) => {
     }
     
     // Install fingerprint and IP
-    const installId = req.cookies.installId || null;
+    const installId = req.cookies.install_id || req.cookies.installId || null;
     const registerIp = req.ip || req.connection?.remoteAddress || null;
+
+    // Enforce one account per device (install_id)
+    if (installId) {
+      const existingByInstall = await db.query('SELECT id, alias FROM users WHERE install_id = $1 LIMIT 1', [installId]);
+      if (existingByInstall.rows.length) {
+        return res.status(409).json({ error: 'An account already exists on this device. Please login instead.', alias: existingByInstall.rows[0].alias });
+      }
+    }
 
     // Create user
     const userResult = await db.query(
@@ -172,6 +180,20 @@ router.post('/login', async (req, res) => {
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ error: 'Failed to login' });
+  }
+});
+
+// Check if this device already has a registered account
+router.get('/install-status', async (req, res) => {
+  try {
+    const installId = req.cookies.install_id || req.cookies.installId || null;
+    if (!installId) return res.json({ hasAccount: false });
+    const r = await db.query('SELECT alias FROM users WHERE install_id = $1 LIMIT 1', [installId]);
+    if (r.rows.length) return res.json({ hasAccount: true, alias: r.rows[0].alias });
+    return res.json({ hasAccount: false });
+  } catch (error) {
+    console.error('Install status error:', error);
+    res.status(500).json({ error: 'Failed to get install status' });
   }
 });
 // Logout

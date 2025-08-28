@@ -11,6 +11,7 @@ export default function Welcome() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const [installMsg, setInstallMsg] = useState('');
 
   async function registerRandom() {
     try {
@@ -42,6 +43,13 @@ export default function Welcome() {
     } finally { setLoading(false); }
   }
 
+  // Show device status
+  useState(() => {
+    axios.get(`${API_BASE}/api/auth/install-status`, { withCredentials: true }).then((r) => {
+      if (r.data?.hasAccount) setInstallMsg(`This device already has an account: ${r.data.alias}. Please login.`);
+    }).catch(() => {});
+  }, []);
+
   return (
     <div className="stack">
       <div className="card">
@@ -59,6 +67,7 @@ export default function Welcome() {
 
       <div className="card">
         <div className="title">Register</div>
+        {installMsg && <div className="card error" style={{ marginBottom: 8 }}>{installMsg}</div>}
         <div className="row gap" style={{ marginBottom: 8 }}>
           <button disabled={loading} onClick={registerRandom}>Register (Random Alias)</button>
         </div>
