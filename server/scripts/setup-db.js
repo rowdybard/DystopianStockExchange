@@ -26,6 +26,7 @@ const setupDatabase = async () => {
         index_value DECIMAL(10,2) DEFAULT 100.00,
         stability_status BOOLEAN DEFAULT FALSE,
         stability_expires_at TIMESTAMP,
+        index_value_midnight_utc DECIMAL(10,2),
         last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
@@ -76,6 +77,8 @@ const setupDatabase = async () => {
       CREATE INDEX IF NOT EXISTS idx_votes_target_id ON votes(target_citizen_id);
       CREATE INDEX IF NOT EXISTS idx_votes_created_at ON votes(created_at);
       CREATE INDEX IF NOT EXISTS idx_events_created_at ON events(created_at);
+      CREATE INDEX IF NOT EXISTS idx_events_type ON events(event_type);
+      CREATE INDEX IF NOT EXISTS idx_events_target ON events(target_id);
     `);
 
     // Phase 3 migrations (idempotent)
@@ -87,6 +90,13 @@ const setupDatabase = async () => {
     await db.query(`
       ALTER TABLE votes
       ADD COLUMN IF NOT EXISTS created_utc_date DATE DEFAULT (NOW() AT TIME ZONE 'UTC')::date;
+    `);
+
+    // Initialize midnight snapshot for existing rows if missing
+    await db.query(`
+      UPDATE citizens
+      SET index_value_midnight_utc = index_value
+      WHERE index_value_midnight_utc IS NULL;
     `);
 
     console.log('✅ Database setup complete!');

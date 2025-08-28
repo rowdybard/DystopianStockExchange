@@ -13,10 +13,15 @@ router.get('/', async (req, res) => {
         c.index_value,
         u.alias,
         u.reputation,
-        c.last_updated
+        c.last_updated,
+        CASE 
+          WHEN c.index_value_midnight_utc IS NOT NULL AND c.index_value_midnight_utc > 0
+          THEN ROUND((c.index_value - c.index_value_midnight_utc) * 100 / c.index_value_midnight_utc, 2)
+          ELSE 0
+        END AS change_pct_24h
       FROM citizens c
       JOIN users u ON c.user_id = u.id
-      ORDER BY c.index_value DESC
+      ORDER BY change_pct_24h DESC
       LIMIT 10
     `);
     
@@ -27,10 +32,15 @@ router.get('/', async (req, res) => {
         c.index_value,
         u.alias,
         u.reputation,
-        c.last_updated
+        c.last_updated,
+        CASE 
+          WHEN c.index_value_midnight_utc IS NOT NULL AND c.index_value_midnight_utc > 0
+          THEN ROUND((c.index_value - c.index_value_midnight_utc) * 100 / c.index_value_midnight_utc, 2)
+          ELSE 0
+        END AS change_pct_24h
       FROM citizens c
       JOIN users u ON c.user_id = u.id
-      ORDER BY c.index_value ASC
+      ORDER BY change_pct_24h ASC
       LIMIT 10
     `);
     
@@ -78,13 +88,29 @@ router.get('/', async (req, res) => {
       ORDER BY vote_count DESC
       LIMIT 10
     `);
+
+    // Most sanctioned citizens (count of 'sanction' events)
+    const mostSanctionedResult = await db.query(`
+      SELECT 
+        c.id,
+        c.index_value,
+        u.alias,
+        COUNT(e.id) as sanction_count
+      FROM citizens c
+      JOIN users u ON c.user_id = u.id
+      LEFT JOIN events e ON e.target_id = c.id AND e.event_type = 'sanction'
+      GROUP BY c.id, c.index_value, u.alias
+      ORDER BY sanction_count DESC
+      LIMIT 10
+    `);
     
     res.json({
       topGainers: topGainersResult.rows,
       topLosers: topLosersResult.rows,
       mostDoubted: mostDoubtedResult.rows,
       mostAffirmed: mostAffirmedResult.rows,
-      mostActiveVoters: mostActiveVotersResult.rows
+      mostActiveVoters: mostActiveVotersResult.rows,
+      mostSanctioned: mostSanctionedResult.rows
     });
   } catch (error) {
     console.error('Get leaderboards error:', error);
@@ -176,6 +202,22 @@ router.get('/:type', async (req, res) => {
           LEFT JOIN votes v ON u.id = v.actor_id
           GROUP BY u.id, u.alias
           ORDER BY vote_count DESC
+          LIMIT $1
+        `;
+        break;
+
+      case 'sanctioned':
+        query = `
+          SELECT 
+            c.id,
+            c.index_value,
+            u.alias,
+            COUNT(e.id) as sanction_count
+          FROM citizens c
+          JOIN users u ON c.user_id = u.id
+          LEFT JOIN events e ON e.target_id = c.id AND e.event_type = 'sanction'
+          GROUP BY c.id, c.index_value, u.alias
+          ORDER BY sanction_count DESC
           LIMIT $1
         `;
         break;

@@ -144,6 +144,10 @@ async function runTribunalTick() {
         'UPDATE citizens SET index_value = $1, last_updated = NOW() WHERE id = $2',
         [newIndex.toFixed(2), citizen.id]
       );
+      await db.query(
+        'INSERT INTO events (event_type, target_id, message, delta_percent) VALUES ($1, $2, $3, $4)',
+        ['sanction', citizen.id, 'Citizen sanctioned (-10%).', appliedDelta]
+      );
     }
     await db.query(
       `INSERT INTO events (event_type, target_id, message, delta_percent) VALUES ($1, NULL, $2, $3)`,
@@ -190,9 +194,41 @@ function startSchedulers() {
   const signal = { stopped: false };
   startDriftLoop(signal);
   startTribunalLoop(signal);
+  startMidnightSnapshotLoop(signal);
   return () => { signal.stopped = true; };
 }
 
 module.exports = { startSchedulers };
+
+// Midnight snapshot (UTC): set index_value_midnight_utc to current index_value
+function msUntilNextUtcMidnight() {
+  const now = new Date();
+  const year = now.getUTCFullYear();
+  const month = now.getUTCMonth();
+  const day = now.getUTCDate();
+  const next = new Date(Date.UTC(year, month, day + 1, 0, 0, 0));
+  return next.getTime() - now.getTime();
+}
+
+async function runMidnightSnapshot() {
+  try {
+    await db.query('UPDATE citizens SET index_value_midnight_utc = index_value');
+    await db.query(
+      `INSERT INTO events (event_type, target_id, message, delta_percent) VALUES ($1, NULL, $2, $3)`,
+      ['midnight_snapshot', 'Midnight snapshot captured.', 0]
+    );
+  } catch (err) {
+    console.error('Midnight snapshot error:', err);
+  }
+}
+
+async function startMidnightSnapshotLoop(signal) {
+  while (!signal.stopped) {
+    const waitMs = msUntilNextUtcMidnight();
+    await sleep(waitMs);
+    if (signal.stopped) break;
+    await runMidnightSnapshot();
+  }
+}
 
 

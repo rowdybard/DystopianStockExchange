@@ -8,6 +8,7 @@ export default function Navbar() {
       </div>
       <div className="nav-right">
         <NavLink to="/" end className={({ isActive }) => isActive ? 'active' : ''}>Market</NavLink>
+        <NavLink to="/leaderboards" className={({ isActive }) => isActive ? 'active' : ''}>Leaderboards</NavLink>
         <NavLink to="/events" className={({ isActive }) => isActive ? 'active' : ''}>Events</NavLink>
       </div>
     </nav>

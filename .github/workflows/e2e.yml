@@ -1,0 +1,47 @@
+name: E2E
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+      - name: Install deps
+        run: |
+          npm run install-all
+          npx playwright install --with-deps
+      - name: Start server
+        run: |
+          npm run build
+          npm start &
+          echo $! > server.pid
+        env:
+          NODE_ENV: production
+          CLIENT_URL: http://localhost:3001
+          PORT: 3001
+      - name: Init DB
+        run: |
+          sleep 5
+          cd server
+          node scripts/setup-db.js || true
+      - name: Run E2E
+        working-directory: client
+        run: |
+          npm run test:e2e
+        env:
+          E2E_APP_URL: http://localhost:3001
+      - name: Stop server
+        if: always()
+        run: |
+          kill $(cat server.pid) || true
+
+

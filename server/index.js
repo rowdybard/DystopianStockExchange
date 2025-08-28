@@ -55,20 +55,22 @@ const server = app.listen(PORT, () => {
   console.log(`🏛️ Dystopian Exchange Server running on port ${PORT}`);
 });
 
-// Start schedulers (drift + tribunal)
-try {
-  const { startSchedulers } = require('./services/schedulers');
-  const stopSchedulers = startSchedulers();
-  process.on('SIGTERM', () => {
-    stopSchedulers && stopSchedulers();
-    server.close(() => process.exit(0));
-  });
-  process.on('SIGINT', () => {
-    stopSchedulers && stopSchedulers();
-    server.close(() => process.exit(0));
-  });
-} catch (err) {
-  console.error('Failed to start schedulers:', err);
+// Start schedulers (drift + tribunal) unless disabled
+if (!process.env.DISABLE_SCHEDULERS) {
+  try {
+    const { startSchedulers } = require('./services/schedulers');
+    const stopSchedulers = startSchedulers();
+    process.on('SIGTERM', () => {
+      stopSchedulers && stopSchedulers();
+      server.close(() => process.exit(0));
+    });
+    process.on('SIGINT', () => {
+      stopSchedulers && stopSchedulers();
+      server.close(() => process.exit(0));
+    });
+  } catch (err) {
+    console.error('Failed to start schedulers:', err);
+  }
 }
 
 module.exports = app;

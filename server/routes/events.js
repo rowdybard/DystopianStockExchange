@@ -30,6 +30,18 @@ router.get('/', async (req, res) => {
   }
 });
 
+// Get tribunal state (market halt status)
+router.get('/tribunal/state', async (req, res) => {
+  try {
+    const s = await db.query('SELECT market_halt_until FROM system_state WHERE id = 1');
+    const marketHaltUntil = s.rows[0]?.market_halt_until || null;
+    res.json({ marketHaltUntil });
+  } catch (error) {
+    console.error('Get tribunal state error:', error);
+    res.status(500).json({ error: 'Failed to get tribunal state' });
+  }
+});
+
 // Get events for specific citizen
 router.get('/citizen/:citizenId', async (req, res) => {
   try {
@@ -118,6 +130,7 @@ router.post('/tribunal', async (req, res) => {
         const applied = stabilityActive && baseDelta < 0 ? baseDelta * factor : baseDelta;
         const newIndex = Math.max(0, parseFloat(c.index_value) * (1 + applied / 100));
         await db.query('UPDATE citizens SET index_value = $1, last_updated = NOW() WHERE id = $2', [newIndex.toFixed(2), c.id]);
+        await db.query('INSERT INTO events (event_type, target_id, message, delta_percent) VALUES ($1, $2, $3, $4)', ['sanction', c.id, 'Citizen sanctioned (-10%).', applied]);
       }
       const evt = await db.query('INSERT INTO events (event_type, target_id, message, delta_percent) VALUES ($1, NULL, $2, $3) RETURNING id', ['sanction_wave', message || 'Sanction Wave (top 10 penalized).', baseDelta]);
       await db.query('UPDATE system_state SET last_tribunal_at = $1 WHERE id = 1', [now]);

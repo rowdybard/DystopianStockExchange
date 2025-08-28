@@ -10,6 +10,7 @@ router.get('/', async (req, res) => {
       SELECT 
         c.id,
         c.index_value,
+        c.index_value_midnight_utc,
         c.stability_status,
         c.last_updated,
         u.alias,
@@ -41,6 +42,7 @@ router.get('/:id', async (req, res) => {
         c.index_value,
         c.stability_status,
         c.stability_expires_at,
+        c.stability_last_activated_at,
         c.last_updated,
         u.alias,
         u.reputation,

@@ -171,4 +171,40 @@ router.get('/history', async (req, res) => {
   }
 });
 
+// Get remaining quotas (total and per-target per-type)
+router.get('/quota/:targetCitizenId', async (req, res) => {
+  try {
+    const userId = req.cookies.userId;
+    const { targetCitizenId } = req.params;
+    if (!userId) return res.status(401).json({ error: 'Not authenticated' });
+
+    const u = await db.query('SELECT daily_quota_remaining, quota_reset_date FROM users WHERE id = $1', [userId]);
+    if (!u.rows.length) return res.status(404).json({ error: 'User not found' });
+
+    // Reset if new UTC day for accurate number
+    const user = u.rows[0];
+    const todayUtc = new Date().toISOString().slice(0, 10);
+    let dailyRemaining = user.daily_quota_remaining;
+    if (user.quota_reset_date !== todayUtc) {
+      dailyRemaining = 20;
+    }
+
+    const counts = await db.query(
+      `SELECT vote_type, COUNT(*)::int as cnt
+       FROM votes
+       WHERE actor_id = $1 AND target_citizen_id = $2 AND created_utc_date = (NOW() AT TIME ZONE 'UTC')::date
+       GROUP BY vote_type`,
+      [userId, targetCitizenId]
+    );
+
+    const perType = { affirm: 0, doubt: 0 };
+    for (const r of counts.rows) perType[r.vote_type] = r.cnt;
+
+    res.json({ dailyRemaining, perTypeRemaining: { affirm: Math.max(0, 2 - perType.affirm), doubt: Math.max(0, 2 - perType.doubt) } });
+  } catch (error) {
+    console.error('Get quota error:', error);
+    res.status(500).json({ error: 'Failed to get quotas' });
+  }
+});
+
 module.exports = router;

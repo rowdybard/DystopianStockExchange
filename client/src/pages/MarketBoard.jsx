@@ -68,16 +68,22 @@ export default function MarketBoard() {
 
   return (
     <div className="grid">
-      {citizens.map((c) => (
-        <Link key={c.id} to={`/citizen/${c.id}`} className="card citizen">
-          <div className="alias">{c.alias}</div>
-          <div className={`index ${c.index_value >= 100 ? 'up' : 'down'}`}>{Number(c.index_value).toFixed(2)}</div>
-          <div className="meta">
-            <span>Rep {c.reputation}</span>
-            <span>{c.is_active ? 'ACTIVE' : 'IDLE'}</span>
-          </div>
-        </Link>
-      ))}
+      {citizens.map((c) => {
+        let changePct = 0;
+        if (c.index_value_midnight_utc && Number(c.index_value_midnight_utc) > 0) {
+          changePct = ((Number(c.index_value) - Number(c.index_value_midnight_utc)) * 100) / Number(c.index_value_midnight_utc);
+        }
+        return (
+          <Link key={c.id} to={`/citizen/${c.id}`} className="card citizen">
+            <div className="alias">{c.alias}</div>
+            <div className={`index ${Number(changePct) >= 0 ? 'up' : 'down'}`}>{Number(c.index_value).toFixed(2)}</div>
+            <div className="meta">
+              <span>{changePct >= 0 ? '+' : ''}{changePct.toFixed(2)}%</span>
+              <span>{c.is_active ? 'ACTIVE' : 'IDLE'}</span>
+            </div>
+          </Link>
+        );
+      })}
     </div>
   );
 }
