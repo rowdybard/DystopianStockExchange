@@ -87,6 +87,12 @@ const setupDatabase = async () => {
       ADD COLUMN IF NOT EXISTS stability_last_activated_at TIMESTAMP;
     `);
 
+    // Phase 5 migration: ensure midnight snapshot column exists on existing DBs
+    await db.query(`
+      ALTER TABLE citizens
+      ADD COLUMN IF NOT EXISTS index_value_midnight_utc DECIMAL(10,2);
+    `);
+
     await db.query(`
       ALTER TABLE votes
       ADD COLUMN IF NOT EXISTS created_utc_date DATE DEFAULT (NOW() AT TIME ZONE 'UTC')::date;
