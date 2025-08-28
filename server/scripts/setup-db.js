@@ -12,6 +12,7 @@ const setupDatabase = async () => {
       CREATE TABLE IF NOT EXISTS users (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         alias VARCHAR(50) UNIQUE NOT NULL,
+        password_hash TEXT,
         reputation INTEGER DEFAULT 0,
         daily_quota_remaining INTEGER DEFAULT 20,
         quota_reset_date DATE DEFAULT CURRENT_DATE,
@@ -91,6 +92,13 @@ const setupDatabase = async () => {
     await db.query(`
       ALTER TABLE citizens
       ADD COLUMN IF NOT EXISTS index_value_midnight_utc DECIMAL(10,2);
+    `);
+
+    // Phase 6: protection tracking (per-UTC-day cap)
+    await db.query(`
+      ALTER TABLE citizens
+      ADD COLUMN IF NOT EXISTS protection_minutes_today INTEGER DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS protection_minutes_reset_date DATE;
     `);
 
     await db.query(`

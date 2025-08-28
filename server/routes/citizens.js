@@ -155,7 +155,9 @@ router.post('/:id/stability', async (req, res) => {
     
     // Check if stability is already active
     const currentResult = await db.query(
-      'SELECT stability_status, stability_expires_at, stability_last_activated_at, index_value FROM citizens WHERE id = $1',
+      `SELECT stability_status, stability_expires_at, stability_last_activated_at, index_value,
+              protection_minutes_today, protection_minutes_reset_date
+       FROM citizens WHERE id = $1`,
       [id]
     );
     
@@ -176,25 +178,45 @@ router.post('/:id/stability', async (req, res) => {
       return res.status(429).json({ error: 'Stability protocol cooldown: one activation per hour' });
     }
 
-    // Price schedule: 10m = 1.0 index point, 20m = 1.8, 30m = 2.5
-    const costMap = { 10: 1.0, 20: 1.8, 30: 2.5 };
-    const cost = costMap[duration];
+    // Reset protection cap at UTC midnight
+    const todayUtc = new Date().toISOString().slice(0,10);
+    let minutesToday = citizen.protection_minutes_today || 0;
+    if (citizen.protection_minutes_reset_date !== todayUtc) {
+      minutesToday = 0;
+    }
+    if (minutesToday + duration > 60) {
+      return res.status(429).json({ error: 'Daily protection cap reached (60m per 24h)' });
+    }
+
+    // Percent-of-index pricing with high-index surcharges
+    const basePct = { 10: 1.0, 20: 1.8, 30: 2.5 }[duration] / 100;
     const currentIndex = parseFloat(citizen.index_value);
-    if (currentIndex <= cost) {
-      return res.status(400).json({ error: 'Insufficient index to purchase protection' });
+    let surcharge = 1.0;
+    if (currentIndex >= 50000) surcharge = 1.75;
+    else if (currentIndex >= 10000) surcharge = 1.50;
+    else if (currentIndex >= 1000) surcharge = 1.25;
+    let cost = currentIndex * basePct * surcharge;
+    // Minimum floors
+    const minMap = { 10: 0.5, 20: 0.9, 30: 1.25 };
+    if (cost < minMap[duration]) cost = minMap[duration];
+    cost = parseFloat(cost.toFixed(2));
+    if (currentIndex - cost < 5) {
+      return res.status(400).json({ error: 'Purchase would drop index too low' });
     }
 
     const expiresAt = new Date(Date.now() + duration * 60 * 1000);
     
     await db.query(
-      'UPDATE citizens SET index_value = $1, stability_status = true, stability_expires_at = $2, stability_last_activated_at = NOW(), last_updated = NOW() WHERE id = $3',
-      [(currentIndex - cost).toFixed(2), expiresAt, id]
+      `UPDATE citizens SET index_value = $1, stability_status = true, stability_expires_at = $2, stability_last_activated_at = NOW(),
+        protection_minutes_today = $3, protection_minutes_reset_date = CURRENT_DATE, last_updated = NOW()
+       WHERE id = $4`,
+      [(currentIndex - cost).toFixed(2), expiresAt, minutesToday + duration, id]
     );
     
     // Log event
     await db.query(
       'INSERT INTO events (event_type, target_id, message) VALUES ($1, $2, $3)',
-      ['stability_activated', id, `Protection purchased: ${duration}m for -${cost.toFixed(2)} index. Volatility reduced.`]
+      ['stability_activated', id, `Protection purchased: ${duration}m for -${cost.toFixed(2)} index (surcharge x${surcharge}). Volatility reduced.`]
     );
     
     res.json({ 

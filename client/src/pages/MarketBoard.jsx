@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { API_BASE } from '../config.js';
+import LandingModal from '../components/LandingModal.jsx';
 
 export default function MarketBoard() {
   const [citizens, setCitizens] = useState([]);
@@ -20,19 +21,20 @@ export default function MarketBoard() {
     }
   }
 
-  async function ensureSession() {
+  const [showLanding, setShowLanding] = useState(false);
+  async function checkSession() {
     try {
       await axios.get(`${API_BASE}/api/auth/me`, { withCredentials: true });
     } catch (e) {
       if (e?.response?.status === 401) {
-        await axios.post(`${API_BASE}/api/auth/register`, {}, { withCredentials: true });
+        setShowLanding(true);
       }
     }
   }
 
   useEffect(() => {
     (async () => {
-      await ensureSession();
+      await checkSession();
       await fetchCitizens();
     })();
     const id = setInterval(fetchCitizens, 30000);
@@ -54,15 +56,44 @@ export default function MarketBoard() {
     }
   }
 
+  async function loginMarket({ alias, password }) {
+    try {
+      await axios.post(`${API_BASE}/api/auth/login`, { alias, password }, { withCredentials: true });
+      setShowLanding(false);
+      await fetchCitizens();
+    } catch (e) {
+      setError(e?.response?.data?.error || 'Login failed');
+    }
+  }
+
+  async function registerCustom({ alias, password }) {
+    try {
+      await axios.post(`${API_BASE}/api/auth/register`, { alias, password }, { withCredentials: true });
+      setShowLanding(false);
+      await fetchCitizens();
+    } catch (e) {
+      setError(e?.response?.data?.error || 'Registration failed');
+    }
+  }
+
   if (!citizens.length) {
     return (
-      <div className="card">
-        <div className="title">Market Board</div>
-        <div className="row space">
-          <div className="muted">No citizens yet.</div>
-          <button onClick={joinMarket} disabled={joining}>{joining ? 'Joining…' : 'Join Market'}</button>
+      <>
+        <div className="card">
+          <div className="title">Market Board</div>
+          <div className="row space">
+            <div className="muted">No citizens yet.</div>
+            <button onClick={() => setShowLanding(true)}>Join Market</button>
+          </div>
         </div>
-      </div>
+        <LandingModal
+          open={showLanding}
+          onJoin={async () => { setJoining(true); await joinMarket(); setShowLanding(false); }}
+          onLogin={loginMarket}
+          onRegister={registerCustom}
+          onClose={() => setShowLanding(false)}
+        />
+      </>
     );
   }
 

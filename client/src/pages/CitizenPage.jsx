@@ -122,9 +122,9 @@ function StabilityForm({ onSubmit, disabled }) {
     <form className="form" onSubmit={handleSubmit}>
       <div className="row">
         <select value={minutes} onChange={(e) => setMinutes(parseInt(e.target.value, 10))}>
-          <option value={10}>10m (cost 1.0)</option>
-          <option value={20}>20m (cost 1.8)</option>
-          <option value={30}>30m (cost 2.5)</option>
+          <option value={10}>10m (~1.0% of index)</option>
+          <option value={20}>20m (~1.8% of index)</option>
+          <option value={30}>30m (~2.5% of index)</option>
         </select>
       </div>
       <button disabled={disabled} type="submit">Buy Protection</button>
