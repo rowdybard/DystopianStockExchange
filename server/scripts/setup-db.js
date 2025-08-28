@@ -4,6 +4,9 @@ const setupDatabase = async () => {
   try {
     console.log('🏗️ Setting up Dystopian Exchange Database...');
 
+    // Required extensions
+    await db.query(`CREATE EXTENSION IF NOT EXISTS pgcrypto;`);
+
     // Create tables
     await db.query(`
       CREATE TABLE IF NOT EXISTS users (
@@ -50,6 +53,22 @@ const setupDatabase = async () => {
       );
     `);
 
+    // Global/system state (singleton)
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS system_state (
+        id SMALLINT PRIMARY KEY DEFAULT 1,
+        market_halt_until TIMESTAMP,
+        last_tribunal_at TIMESTAMP
+      );
+    `);
+
+    // Ensure a singleton row exists
+    await db.query(`
+      INSERT INTO system_state (id, market_halt_until, last_tribunal_at)
+      VALUES (1, NULL, CURRENT_TIMESTAMP - INTERVAL '10 minutes')
+      ON CONFLICT (id) DO NOTHING;
+    `);
+
     // Create indexes for performance
     await db.query(`
       CREATE INDEX IF NOT EXISTS idx_citizens_user_id ON citizens(user_id);
@@ -57,6 +76,17 @@ const setupDatabase = async () => {
       CREATE INDEX IF NOT EXISTS idx_votes_target_id ON votes(target_citizen_id);
       CREATE INDEX IF NOT EXISTS idx_votes_created_at ON votes(created_at);
       CREATE INDEX IF NOT EXISTS idx_events_created_at ON events(created_at);
+    `);
+
+    // Phase 3 migrations (idempotent)
+    await db.query(`
+      ALTER TABLE citizens
+      ADD COLUMN IF NOT EXISTS stability_last_activated_at TIMESTAMP;
+    `);
+
+    await db.query(`
+      ALTER TABLE votes
+      ADD COLUMN IF NOT EXISTS created_utc_date DATE DEFAULT (NOW() AT TIME ZONE 'UTC')::date;
     `);
 
     console.log('✅ Database setup complete!');

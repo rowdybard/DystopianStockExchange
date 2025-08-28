@@ -61,35 +61,70 @@ router.post('/tribunal', async (req, res) => {
   try {
     const { eventType, targetId, message, deltaPercent } = req.body;
     
-    if (!eventType || !message) {
+    if (!eventType) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
     
-    // Insert event
-    const eventResult = await db.query(
-      'INSERT INTO events (event_type, target_id, message, delta_percent) VALUES ($1, $2, $3, $4) RETURNING id',
-      [eventType, targetId, message, deltaPercent]
-    );
-    
-    // If it's a global event, apply to all citizens
-    if (eventType === 'global' && deltaPercent) {
-      const citizensResult = await db.query('SELECT id, index_value FROM citizens');
-      
-      for (const citizen of citizensResult.rows) {
-        const currentIndex = parseFloat(citizen.index_value);
-        const newIndex = Math.max(0, currentIndex * (1 + deltaPercent / 100));
-        
-        await db.query(
-          'UPDATE citizens SET index_value = $1, last_updated = NOW() WHERE id = $2',
-          [newIndex.toFixed(2), citizen.id]
-        );
-      }
+    // Handle event types aligned to spec
+    const now = new Date();
+    if (eventType === 'observation_halt') {
+      const haltUntil = new Date(Date.now() + 2 * 60 * 1000);
+      const evt = await db.query(
+        'INSERT INTO events (event_type, target_id, message, delta_percent) VALUES ($1, NULL, $2, $3) RETURNING id',
+        ['observation_halt', message || 'Observation Halt enacted — market frozen.', 0]
+      );
+      await db.query(
+        `INSERT INTO system_state (id, market_halt_until, last_tribunal_at)
+         VALUES (1, $1, $2)
+         ON CONFLICT (id) DO UPDATE SET market_halt_until = EXCLUDED.market_halt_until, last_tribunal_at = EXCLUDED.last_tribunal_at`,
+        [haltUntil, now]
+      );
+      return res.json({ success: true, eventId: evt.rows[0].id, haltUntil });
     }
-    
-    res.json({ 
-      success: true, 
-      eventId: eventResult.rows[0].id 
-    });
+
+    if (eventType === 'sector_uplift') {
+      const delta = typeof deltaPercent === 'number' ? deltaPercent : 3.5;
+      const citizens = await db.query('SELECT id, index_value FROM citizens');
+      for (const c of citizens.rows) {
+        const newIndex = Math.max(0, parseFloat(c.index_value) * (1 + delta / 100));
+        await db.query('UPDATE citizens SET index_value = $1, last_updated = NOW() WHERE id = $2', [newIndex.toFixed(2), c.id]);
+      }
+      const evt = await db.query('INSERT INTO events (event_type, target_id, message, delta_percent) VALUES ($1, NULL, $2, $3) RETURNING id', ['sector_uplift', message || `Sector Uplift (+${delta}%).`, delta]);
+      await db.query('UPDATE system_state SET last_tribunal_at = $1 WHERE id = 1', [now]);
+      return res.json({ success: true, eventId: evt.rows[0].id });
+    }
+
+    if (eventType === 'sector_crash') {
+      const baseDelta = typeof deltaPercent === 'number' ? deltaPercent : -3.5;
+      const citizens = await db.query('SELECT id, index_value, stability_status, stability_expires_at FROM citizens');
+      const factor = parseFloat(process.env.STABILITY_DAMPEN_FACTOR || '0.5');
+      for (const c of citizens.rows) {
+        const stabilityActive = c.stability_status && c.stability_expires_at && new Date(c.stability_expires_at) > new Date();
+        const applied = stabilityActive && baseDelta < 0 ? baseDelta * factor : baseDelta;
+        const newIndex = Math.max(0, parseFloat(c.index_value) * (1 + applied / 100));
+        await db.query('UPDATE citizens SET index_value = $1, last_updated = NOW() WHERE id = $2', [newIndex.toFixed(2), c.id]);
+      }
+      const evt = await db.query('INSERT INTO events (event_type, target_id, message, delta_percent) VALUES ($1, NULL, $2, $3) RETURNING id', ['sector_crash', message || `Sector Crash (${baseDelta}%).`, baseDelta]);
+      await db.query('UPDATE system_state SET last_tribunal_at = $1 WHERE id = 1', [now]);
+      return res.json({ success: true, eventId: evt.rows[0].id });
+    }
+
+    if (eventType === 'sanction_wave') {
+      const baseDelta = typeof deltaPercent === 'number' ? deltaPercent : -10;
+      const top = await db.query('SELECT id, index_value, stability_status, stability_expires_at FROM citizens ORDER BY index_value DESC LIMIT 10');
+      const factor = parseFloat(process.env.STABILITY_DAMPEN_FACTOR || '0.5');
+      for (const c of top.rows) {
+        const stabilityActive = c.stability_status && c.stability_expires_at && new Date(c.stability_expires_at) > new Date();
+        const applied = stabilityActive && baseDelta < 0 ? baseDelta * factor : baseDelta;
+        const newIndex = Math.max(0, parseFloat(c.index_value) * (1 + applied / 100));
+        await db.query('UPDATE citizens SET index_value = $1, last_updated = NOW() WHERE id = $2', [newIndex.toFixed(2), c.id]);
+      }
+      const evt = await db.query('INSERT INTO events (event_type, target_id, message, delta_percent) VALUES ($1, NULL, $2, $3) RETURNING id', ['sanction_wave', message || 'Sanction Wave (top 10 penalized).', baseDelta]);
+      await db.query('UPDATE system_state SET last_tribunal_at = $1 WHERE id = 1', [now]);
+      return res.json({ success: true, eventId: evt.rows[0].id });
+    }
+
+    return res.status(400).json({ error: 'Unsupported eventType' });
   } catch (error) {
     console.error('Create tribunal event error:', error);
     res.status(500).json({ error: 'Failed to create tribunal event' });

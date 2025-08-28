@@ -134,11 +134,18 @@ router.post('/:id/stability', async (req, res) => {
       return res.status(400).json({ error: 'Stability protocol already active' });
     }
     
+    // Enforce 1-hour cooldown using stability_last_activated_at
+    const now = new Date();
+    const lastActivated = citizen.stability_last_activated_at ? new Date(citizen.stability_last_activated_at) : null;
+    if (lastActivated && now.getTime() - lastActivated.getTime() < 60 * 60 * 1000) {
+      return res.status(429).json({ error: 'Stability protocol cooldown: one activation per hour' });
+    }
+
     // Activate stability for 10 minutes
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
     
     await db.query(
-      'UPDATE citizens SET stability_status = true, stability_expires_at = $1 WHERE id = $2',
+      'UPDATE citizens SET stability_status = true, stability_expires_at = $1, stability_last_activated_at = NOW() WHERE id = $2',
       [expiresAt, id]
     );
     

@@ -6,6 +6,12 @@ const router = express.Router();
 // Submit a vote (affirm or doubt)
 router.post('/', async (req, res) => {
   try {
+    // Market halt check
+    const haltRes = await db.query('SELECT market_halt_until FROM system_state WHERE id = 1');
+    if (haltRes.rows.length && haltRes.rows[0].market_halt_until && new Date(haltRes.rows[0].market_halt_until) > new Date()) {
+      return res.status(423).json({ error: 'Market is under Observation Halt' });
+    }
+
     const { targetCitizenId, voteType } = req.body;
     const actorId = req.cookies.userId;
     
@@ -17,6 +23,15 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Invalid vote data' });
     }
     
+    // Block self-voting
+    const selfCheck = await db.query(
+      'SELECT 1 FROM citizens WHERE id = $1 AND user_id = $2',
+      [targetCitizenId, actorId]
+    );
+    if (selfCheck.rows.length > 0) {
+      return res.status(400).json({ error: 'Self-voting is not permitted' });
+    }
+
     // Check daily quota
     const quotaResult = await db.query(
       'SELECT daily_quota_remaining, quota_reset_date FROM users WHERE id = $1',
@@ -29,8 +44,9 @@ router.post('/', async (req, res) => {
     
     const user = quotaResult.rows[0];
     
-    // Reset quota if it's a new day
-    if (user.quota_reset_date !== new Date().toISOString().split('T')[0]) {
+    // Reset quota if it's a new UTC day
+    const todayUtc = new Date().toISOString().slice(0, 10);
+    if (user.quota_reset_date !== todayUtc) {
       await db.query(
         'UPDATE users SET daily_quota_remaining = 20, quota_reset_date = CURRENT_DATE WHERE id = $1',
         [actorId]
@@ -42,25 +58,27 @@ router.post('/', async (req, res) => {
       return res.status(429).json({ error: 'Daily vote quota exceeded' });
     }
     
-    // Check if already voted on this citizen today
+    // Check per-type limit (max 2 per target per UTC day per type)
     const existingVoteResult = await db.query(
       `SELECT COUNT(*) as vote_count 
        FROM votes 
        WHERE actor_id = $1 AND target_citizen_id = $2 
-       AND DATE(created_at) = CURRENT_DATE`,
-      [actorId, targetCitizenId]
+         AND vote_type = $3
+         AND created_utc_date = (NOW() AT TIME ZONE 'UTC')::date`,
+      [actorId, targetCitizenId, voteType]
     );
     
-    if (parseInt(existingVoteResult.rows[0].vote_count) >= 2) {
-      return res.status(429).json({ error: 'Maximum votes per citizen per day exceeded' });
+    if (parseInt(existingVoteResult.rows[0].vote_count, 10) >= 2) {
+      return res.status(429).json({ error: 'Max 2 of each vote type per target per UTC day' });
     }
     
     // Calculate vote weight (0.5-1.0%)
-    const weight = 0.5 + Math.random() * 0.5;
+    let weight = 0.5 + Math.random() * 0.5;
     
     // Insert vote
     await db.query(
-      'INSERT INTO votes (actor_id, target_citizen_id, vote_type, weight) VALUES ($1, $2, $3, $4)',
+      `INSERT INTO votes (actor_id, target_citizen_id, vote_type, weight, created_utc_date)
+       VALUES ($1, $2, $3, $4, (NOW() AT TIME ZONE 'UTC')::date)`,
       [actorId, targetCitizenId, voteType, weight]
     );
     
@@ -68,7 +86,7 @@ router.post('/', async (req, res) => {
     const deltaPercent = voteType === 'affirm' ? weight : -weight;
     
     const citizenResult = await db.query(
-      'SELECT index_value FROM citizens WHERE id = $1',
+      'SELECT index_value, stability_status, stability_expires_at FROM citizens WHERE id = $1',
       [targetCitizenId]
     );
     
@@ -76,7 +94,16 @@ router.post('/', async (req, res) => {
       return res.status(404).json({ error: 'Target citizen not found' });
     }
     
-    const currentIndex = parseFloat(citizenResult.rows[0].index_value);
+    const citizenRow = citizenResult.rows[0];
+    const currentIndex = parseFloat(citizenRow.index_value);
+
+    // Apply stability dampening on negative votes if active
+    const stabilityActive = citizenRow.stability_status && citizenRow.stability_expires_at && new Date(citizenRow.stability_expires_at) > new Date();
+    if (stabilityActive && deltaPercent < 0) {
+      const factor = parseFloat(process.env.STABILITY_DAMPEN_FACTOR || '0.5');
+      deltaPercent = deltaPercent * factor;
+    }
+
     const newIndex = Math.max(0, currentIndex * (1 + deltaPercent / 100));
     
     await db.query(
@@ -92,10 +119,7 @@ router.post('/', async (req, res) => {
     
     // Log event
     const actorResult = await db.query('SELECT alias FROM users WHERE id = $1', [actorId]);
-    const targetResult = await db.query(
-      'SELECT u.alias FROM citizens c JOIN users u ON c.user_id = u.id WHERE c.id = $1',
-      [targetCitizenId]
-    );
+    const targetResult = await db.query('SELECT u.alias FROM citizens c JOIN users u ON c.user_id = u.id WHERE c.id = $1', [targetCitizenId]);
     
     const message = `${actorResult.rows[0].alias} ${voteType}ed ${targetResult.rows[0].alias} (${deltaPercent > 0 ? '+' : ''}${deltaPercent.toFixed(1)}%)`;
     

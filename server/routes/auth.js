@@ -31,10 +31,11 @@ router.post('/register', async (req, res) => {
       [user.id, 100.00]
     );
     
-    // Set session cookie
+    // Set session cookie (cross-site friendly for Render)
     res.cookie('userId', user.id, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
       maxAge: 24 * 60 * 60 * 1000 // 24 hours
     });
     
@@ -82,7 +83,11 @@ router.get('/me', async (req, res) => {
 
 // Logout
 router.post('/logout', (req, res) => {
-  res.clearCookie('userId');
+  res.clearCookie('userId', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
+  });
   res.json({ success: true });
 });
 
