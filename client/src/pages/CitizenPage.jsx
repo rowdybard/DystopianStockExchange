@@ -111,23 +111,23 @@ export default function CitizenPage() {
 }
 
 function StabilityForm({ onSubmit, disabled }) {
-  const [birthMonth, setBirthMonth] = useState('');
-  const [favoriteColor, setFavoriteColor] = useState('');
-  const [city, setCity] = useState('');
+  const [minutes, setMinutes] = useState(10);
 
   function handleSubmit(e) {
     e.preventDefault();
-    onSubmit({ birthMonth, favoriteColor, city });
+    onSubmit({ minutes });
   }
 
   return (
     <form className="form" onSubmit={handleSubmit}>
       <div className="row">
-        <input placeholder="Birth Month" value={birthMonth} onChange={(e) => setBirthMonth(e.target.value)} required />
-        <input placeholder="Favorite Color" value={favoriteColor} onChange={(e) => setFavoriteColor(e.target.value)} required />
-        <input placeholder="City" value={city} onChange={(e) => setCity(e.target.value)} required />
+        <select value={minutes} onChange={(e) => setMinutes(parseInt(e.target.value, 10))}>
+          <option value={10}>10m (cost 1.0)</option>
+          <option value={20}>20m (cost 1.8)</option>
+          <option value={30}>30m (cost 2.5)</option>
+        </select>
       </div>
-      <button disabled={disabled} type="submit">Activate Stability</button>
+      <button disabled={disabled} type="submit">Buy Protection</button>
     </form>
   );
 }

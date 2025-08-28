@@ -55,10 +55,21 @@ async function applyDriftTick() {
   }
 }
 
+const EVENT_WEIGHTS = [
+  { type: 'sector_uplift', weight: 0.4 },
+  { type: 'sector_crash', weight: 0.3 },
+  { type: 'observation_halt', weight: 0.15 },
+  { type: 'sanction_wave', weight: 0.15 }
+];
+
 async function pickTribunalEventType() {
-  // Equal weights for MVP
-  const types = ['sector_uplift', 'sector_crash', 'observation_halt', 'sanction_wave'];
-  return types[Math.floor(Math.random() * types.length)];
+  const r = Math.random();
+  let acc = 0;
+  for (const e of EVENT_WEIGHTS) {
+    acc += e.weight;
+    if (r <= acc) return e.type;
+  }
+  return EVENT_WEIGHTS[EVENT_WEIGHTS.length - 1].type;
 }
 
 async function runTribunalTick() {
@@ -127,8 +138,9 @@ async function runTribunalTick() {
   }
 
   if (type === 'sanction_wave') {
-    // Penalize top 10 by index_value by -10%
-    const baseDelta = -10.0;
+    // Penalize top 10 by a variable -5% to -10%
+    const magnitude = parseFloat(randomInRange(5.0, 10.0).toFixed(2));
+    const baseDelta = -magnitude;
     const topRes = await db.query(`
       SELECT id, index_value, stability_status, stability_expires_at
       FROM citizens
@@ -146,12 +158,12 @@ async function runTribunalTick() {
       );
       await db.query(
         'INSERT INTO events (event_type, target_id, message, delta_percent) VALUES ($1, $2, $3, $4)',
-        ['sanction', citizen.id, 'Citizen sanctioned (-10%).', appliedDelta]
+        ['sanction', citizen.id, `Citizen sanctioned (${appliedDelta.toFixed(2)}%).`, appliedDelta]
       );
     }
     await db.query(
       `INSERT INTO events (event_type, target_id, message, delta_percent) VALUES ($1, NULL, $2, $3)`,
-      ['sanction_wave', 'Sanction Wave applied to top 10 citizens (-10%).', baseDelta]
+      ['sanction_wave', `Sanction Wave applied to top 10 citizens (${baseDelta.toFixed(2)}%).`, baseDelta]
     );
     await db.query('UPDATE system_state SET last_tribunal_at = $1 WHERE id = 1', [now]);
     return;

@@ -141,18 +141,21 @@ router.patch('/:id/index', async (req, res) => {
 });
 
 // Activate stability protocol
+// Purchase protection by spending index_value
 router.post('/:id/stability', async (req, res) => {
   try {
     const { id } = req.params;
-    const { birthMonth, favoriteColor, city } = req.body;
+    const { minutes } = req.body; // 10, 20, 30
     
-    if (!birthMonth || !favoriteColor || !city) {
-      return res.status(400).json({ error: 'Missing compliance data' });
+    const allowed = [10, 20, 30];
+    const duration = parseInt(minutes, 10);
+    if (!allowed.includes(duration)) {
+      return res.status(400).json({ error: 'Invalid protection duration' });
     }
     
     // Check if stability is already active
     const currentResult = await db.query(
-      'SELECT stability_status, stability_expires_at FROM citizens WHERE id = $1',
+      'SELECT stability_status, stability_expires_at, stability_last_activated_at, index_value FROM citizens WHERE id = $1',
       [id]
     );
     
@@ -173,24 +176,31 @@ router.post('/:id/stability', async (req, res) => {
       return res.status(429).json({ error: 'Stability protocol cooldown: one activation per hour' });
     }
 
-    // Activate stability for 10 minutes
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    // Price schedule: 10m = 1.0 index point, 20m = 1.8, 30m = 2.5
+    const costMap = { 10: 1.0, 20: 1.8, 30: 2.5 };
+    const cost = costMap[duration];
+    const currentIndex = parseFloat(citizen.index_value);
+    if (currentIndex <= cost) {
+      return res.status(400).json({ error: 'Insufficient index to purchase protection' });
+    }
+
+    const expiresAt = new Date(Date.now() + duration * 60 * 1000);
     
     await db.query(
-      'UPDATE citizens SET stability_status = true, stability_expires_at = $1, stability_last_activated_at = NOW() WHERE id = $2',
-      [expiresAt, id]
+      'UPDATE citizens SET index_value = $1, stability_status = true, stability_expires_at = $2, stability_last_activated_at = NOW(), last_updated = NOW() WHERE id = $3',
+      [(currentIndex - cost).toFixed(2), expiresAt, id]
     );
     
     // Log event
     await db.query(
       'INSERT INTO events (event_type, target_id, message) VALUES ($1, $2, $3)',
-      ['stability_activated', id, 'Compliance data submitted. Volatility reduced.']
+      ['stability_activated', id, `Protection purchased: ${duration}m for -${cost.toFixed(2)} index. Volatility reduced.`]
     );
     
     res.json({ 
       success: true, 
       expiresAt,
-      message: 'Stability protocol activated'
+      message: 'Protection activated'
     });
   } catch (error) {
     console.error('Stability protocol error:', error);

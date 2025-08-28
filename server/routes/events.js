@@ -122,7 +122,8 @@ router.post('/tribunal', async (req, res) => {
     }
 
     if (eventType === 'sanction_wave') {
-      const baseDelta = typeof deltaPercent === 'number' ? deltaPercent : -10;
+      const computed = typeof deltaPercent === 'number' ? deltaPercent : -parseFloat((Math.random() * 5 + 5).toFixed(2));
+      const baseDelta = computed; // negative value
       const top = await db.query('SELECT id, index_value, stability_status, stability_expires_at FROM citizens ORDER BY index_value DESC LIMIT 10');
       const factor = parseFloat(process.env.STABILITY_DAMPEN_FACTOR || '0.5');
       for (const c of top.rows) {
@@ -130,9 +131,9 @@ router.post('/tribunal', async (req, res) => {
         const applied = stabilityActive && baseDelta < 0 ? baseDelta * factor : baseDelta;
         const newIndex = Math.max(0, parseFloat(c.index_value) * (1 + applied / 100));
         await db.query('UPDATE citizens SET index_value = $1, last_updated = NOW() WHERE id = $2', [newIndex.toFixed(2), c.id]);
-        await db.query('INSERT INTO events (event_type, target_id, message, delta_percent) VALUES ($1, $2, $3, $4)', ['sanction', c.id, 'Citizen sanctioned (-10%).', applied]);
+        await db.query('INSERT INTO events (event_type, target_id, message, delta_percent) VALUES ($1, $2, $3, $4)', ['sanction', c.id, `Citizen sanctioned (${applied.toFixed(2)}%).`, applied]);
       }
-      const evt = await db.query('INSERT INTO events (event_type, target_id, message, delta_percent) VALUES ($1, NULL, $2, $3) RETURNING id', ['sanction_wave', message || 'Sanction Wave (top 10 penalized).', baseDelta]);
+      const evt = await db.query('INSERT INTO events (event_type, target_id, message, delta_percent) VALUES ($1, NULL, $2, $3) RETURNING id', ['sanction_wave', message || `Sanction Wave (top 10 penalized ${baseDelta.toFixed(2)}%).`, baseDelta]);
       await db.query('UPDATE system_state SET last_tribunal_at = $1 WHERE id = 1', [now]);
       return res.json({ success: true, eventId: evt.rows[0].id });
     }
