@@ -10,6 +10,19 @@ jobs:
   e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: dystopian_exchange
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -19,20 +32,23 @@ jobs:
         run: |
           npm run install-all
           npx playwright install --with-deps
+      - name: Init DB
+        env:
+          DATABASE_URL: postgresql://postgres:password@localhost:5432/dystopian_exchange
+        run: |
+          cd server
+          node scripts/setup-db.js || true
       - name: Start server
         run: |
           npm run build
           npm start &
           echo $! > server.pid
         env:
-          NODE_ENV: production
+          NODE_ENV: development
           CLIENT_URL: http://localhost:3001
           PORT: 3001
-      - name: Init DB
-        run: |
-          sleep 5
-          cd server
-          node scripts/setup-db.js || true
+          DATABASE_URL: postgresql://postgres:password@localhost:5432/dystopian_exchange
+          DISABLE_SCHEDULERS: true
       - name: Run E2E
         working-directory: client
         run: |
