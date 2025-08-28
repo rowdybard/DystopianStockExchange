@@ -11,7 +11,8 @@
     "start": "cd server && npm start",
     "install-all": "npm install --include=dev && cd server && npm install --include=dev && cd ../client && npm install --include=dev",
     "db:setup": "cd server && npm run db:setup",
-    "db:migrate": "cd server && npm run db:migrate"
+    "db:migrate": "cd server && npm run db:migrate",
+    "db:reset": "cd server && node scripts/reset-db.js"
   },
   "keywords": ["game", "dystopian", "stock-exchange", "multiplayer"],
   "author": "",
