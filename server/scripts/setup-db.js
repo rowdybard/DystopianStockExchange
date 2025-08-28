@@ -84,6 +84,10 @@ const setupDatabase = async () => {
 
     // Phase 3 migrations (idempotent)
     await db.query(`
+      ALTER TABLE users
+      ADD COLUMN IF NOT EXISTS password_hash TEXT;
+    `);
+    await db.query(`
       ALTER TABLE citizens
       ADD COLUMN IF NOT EXISTS stability_last_activated_at TIMESTAMP;
     `);
