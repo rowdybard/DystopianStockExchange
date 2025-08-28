@@ -98,24 +98,33 @@ export default function MarketBoard() {
   }
 
   return (
-    <div className="grid">
-      {citizens.map((c) => {
-        let changePct = 0;
-        if (c.index_value_midnight_utc && Number(c.index_value_midnight_utc) > 0) {
-          changePct = ((Number(c.index_value) - Number(c.index_value_midnight_utc)) * 100) / Number(c.index_value_midnight_utc);
-        }
-        return (
-          <Link key={c.id} to={`/citizen/${c.id}`} className="card citizen">
-            <div className="alias">{c.alias}</div>
-            <div className={`index ${Number(changePct) >= 0 ? 'up' : 'down'}`}>{Number(c.index_value).toFixed(2)}</div>
-            <div className="meta">
-              <span>{changePct >= 0 ? '+' : ''}{changePct.toFixed(2)}%</span>
-              <span>{c.is_active ? 'ACTIVE' : 'IDLE'}</span>
-            </div>
-          </Link>
-        );
-      })}
-    </div>
+    <>
+      <div className="grid">
+        {citizens.map((c) => {
+          let changePct = 0;
+          if (c.index_value_midnight_utc && Number(c.index_value_midnight_utc) > 0) {
+            changePct = ((Number(c.index_value) - Number(c.index_value_midnight_utc)) * 100) / Number(c.index_value_midnight_utc);
+          }
+          return (
+            <Link key={c.id} to={`/citizen/${c.id}`} className="card citizen">
+              <div className="alias">{c.alias}</div>
+              <div className={`index ${Number(changePct) >= 0 ? 'up' : 'down'}`}>{Number(c.index_value).toFixed(2)}</div>
+              <div className="meta">
+                <span>{changePct >= 0 ? '+' : ''}{changePct.toFixed(2)}%</span>
+                <span>{c.is_active ? 'ACTIVE' : 'IDLE'}</span>
+              </div>
+            </Link>
+          );
+        })}
+      </div>
+      <LandingModal
+        open={showLanding}
+        onJoin={async () => { setJoining(true); await joinMarket(); setShowLanding(false); }}
+        onLogin={loginMarket}
+        onRegister={registerCustom}
+        onClose={() => setShowLanding(false)}
+      />
+    </>
   );
 }
 
