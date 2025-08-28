@@ -7,6 +7,7 @@ export default function MarketBoard() {
   const [citizens, setCitizens] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [joining, setJoining] = useState(false);
 
   async function fetchCitizens() {
     try {
@@ -19,14 +20,51 @@ export default function MarketBoard() {
     }
   }
 
+  async function ensureSession() {
+    try {
+      await axios.get(`${API_BASE}/api/auth/me`, { withCredentials: true });
+    } catch (e) {
+      if (e?.response?.status === 401) {
+        await axios.post(`${API_BASE}/api/auth/register`, {}, { withCredentials: true });
+      }
+    }
+  }
+
   useEffect(() => {
-    fetchCitizens();
+    (async () => {
+      await ensureSession();
+      await fetchCitizens();
+    })();
     const id = setInterval(fetchCitizens, 30000);
     return () => clearInterval(id);
   }, []);
 
   if (loading) return <div className="card">Loading market…</div>;
   if (error) return <div className="card error">{error}</div>;
+
+  async function joinMarket() {
+    try {
+      setJoining(true);
+      await axios.post(`${API_BASE}/api/auth/register`, {}, { withCredentials: true });
+      await fetchCitizens();
+    } catch (e) {
+      setError('Failed to join market');
+    } finally {
+      setJoining(false);
+    }
+  }
+
+  if (!citizens.length) {
+    return (
+      <div className="card">
+        <div className="title">Market Board</div>
+        <div className="row space">
+          <div className="muted">No citizens yet.</div>
+          <button onClick={joinMarket} disabled={joining}>{joining ? 'Joining…' : 'Join Market'}</button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="grid">
