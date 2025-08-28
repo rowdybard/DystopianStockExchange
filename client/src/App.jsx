@@ -1,4 +1,7 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import axios from 'axios';
+import { API_BASE } from './config.js';
 import MarketBoard from './pages/MarketBoard.jsx';
 import CitizenPage from './pages/CitizenPage.jsx';
 import EventsFeed from './pages/EventsFeed.jsx';
@@ -9,6 +12,18 @@ import Ticker from './components/Ticker.jsx';
 import { ToastProvider } from './components/Toast.jsx';
 
 export default function App() {
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Redirect unauthenticated users to /welcome by default
+  useEffect(() => {
+    if (location.pathname === '/welcome') return;
+    axios.get(`${API_BASE}/api/auth/me`, { withCredentials: true }).catch((e) => {
+      if (e?.response?.status === 401) {
+        navigate('/welcome', { replace: true });
+      }
+    });
+  }, [location.pathname, navigate]);
   return (
     <ToastProvider>
       <div className="app">
