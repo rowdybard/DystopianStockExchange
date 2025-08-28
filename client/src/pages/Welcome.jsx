@@ -52,6 +52,7 @@ export default function Welcome() {
           <li>Tribunal: Uplift, Crash, Observation Halt, Sanction Wave</li>
           <li>Daily limits for Affirm/Doubt</li>
           <li>Buy protection by spending index</li>
+          <li>Anti‑abuse: 1 account per device/day, short new‑account cooldown</li>
         </ul>
         {error && <div className="card error" style={{ marginTop: 8 }}>{error}</div>}
       </div>

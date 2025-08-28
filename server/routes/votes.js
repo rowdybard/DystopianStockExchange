@@ -34,7 +34,7 @@ router.post('/', async (req, res) => {
 
     // Check daily quota
     const quotaResult = await db.query(
-      'SELECT daily_quota_remaining, quota_reset_date FROM users WHERE id = $1',
+      'SELECT daily_quota_remaining, quota_reset_date, created_at FROM users WHERE id = $1',
       [actorId]
     );
     
@@ -56,6 +56,11 @@ router.post('/', async (req, res) => {
     
     if (user.daily_quota_remaining <= 0) {
       return res.status(429).json({ error: 'Daily vote quota exceeded' });
+    }
+
+    // New account cooldown: 10 minutes post-registration
+    if (new Date(user.created_at).getTime() > Date.now() - 10*60*1000) {
+      return res.status(429).json({ error: 'New account cooldown: voting enabled after 10 minutes' });
     }
     
     // Check per-type limit (max 2 per target per UTC day per type)

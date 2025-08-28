@@ -65,10 +65,14 @@ router.post('/register', async (req, res) => {
       passwordHash = await bcrypt.hash(password, salt);
     }
     
+    // Install fingerprint and IP
+    const installId = req.cookies.installId || null;
+    const registerIp = req.ip || req.connection?.remoteAddress || null;
+
     // Create user
     const userResult = await db.query(
-      'INSERT INTO users (alias, password_hash) VALUES ($1, $2) RETURNING id, alias',
-      [alias, passwordHash]
+      'INSERT INTO users (alias, password_hash, install_id, register_ip) VALUES ($1, $2, $3, $4) RETURNING id, alias',
+      [alias, passwordHash, installId, registerIp]
     );
     
     const user = userResult.rows[0];

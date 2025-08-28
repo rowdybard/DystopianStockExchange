@@ -13,6 +13,8 @@ const setupDatabase = async () => {
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         alias VARCHAR(50) UNIQUE NOT NULL,
         password_hash TEXT,
+        install_id TEXT,
+        register_ip TEXT,
         reputation INTEGER DEFAULT 0,
         daily_quota_remaining INTEGER DEFAULT 20,
         quota_reset_date DATE DEFAULT CURRENT_DATE,
@@ -86,6 +88,14 @@ const setupDatabase = async () => {
     await db.query(`
       ALTER TABLE users
       ADD COLUMN IF NOT EXISTS password_hash TEXT;
+    `);
+    await db.query(`
+      ALTER TABLE users
+      ADD COLUMN IF NOT EXISTS install_id TEXT;
+    `);
+    await db.query(`
+      ALTER TABLE users
+      ADD COLUMN IF NOT EXISTS register_ip TEXT;
     `);
     await db.query(`
       ALTER TABLE citizens

@@ -4,6 +4,7 @@ const fs = require('fs');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 require('dotenv').config();
+const { createRateLimiter } = require('./middleware/rateLimit');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -16,11 +17,21 @@ app.use(cors({
 app.use(express.json());
 app.use(cookieParser());
 
+// Basic rate limiters
+const rlRegister = createRateLimiter(3, 60 * 1000); // 3/min per IP
+const rlRegisterDaily = createRateLimiter(20, 24 * 60 * 60 * 1000); // 20/day per IP
+const rlLogin = createRateLimiter(10, 60 * 1000); // 10/min per IP
+
 // Database connection
 const db = require('./db/connection');
 
 // Routes
-app.use('/api/auth', require('./routes/auth'));
+// Wrap auth routes with rate limits where appropriate
+app.use('/api/auth', (req, res, next) => {
+  if (req.method === 'POST' && req.path === '/register') return rlRegister(req, res, () => rlRegisterDaily(req, res, () => require('./routes/auth')(req, res, next)));
+  if (req.method === 'POST' && req.path === '/login') return rlLogin(req, res, () => require('./routes/auth')(req, res, next));
+  return require('./routes/auth')(req, res, next);
+});
 app.use('/api/citizens', require('./routes/citizens'));
 app.use('/api/votes', require('./routes/votes'));
 app.use('/api/events', require('./routes/events'));
