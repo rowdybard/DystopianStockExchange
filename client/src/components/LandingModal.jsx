@@ -11,7 +11,7 @@ export default function LandingModal({ open, onJoin, onClose, onLogin, onRegiste
       <div className="modal">
         <div className="title">🏛️ Dystopian Citizen Exchange</div>
         <div className="stack">
-          <p>A satirical market where each player is a Citizen Ticket whose Index drifts, is struck by Tribunal events, and can be nudged by others via Affirm/Doubt.</n></p>
+          <p>A satirical market where each player is a Citizen Ticket whose Index drifts, is struck by Tribunal events, and can be nudged by others via Affirm/Doubt.</p>
           <ul>
             <li>Auto‑drift every 1–2 minutes</li>
             <li>Tribunal events: Uplift, Crash, Observation Halt, Sanction Wave</li>
