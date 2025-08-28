@@ -6,7 +6,19 @@ const router = express.Router();
 // Get all citizens (market board)
 router.get('/', async (req, res) => {
   try {
-    const result = await db.query(`
+    // If migration hasn't added index_value_midnight_utc yet, fall back to NULL
+    const colCheck = await db.query(`
+      SELECT EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'citizens'
+          AND column_name = 'index_value_midnight_utc'
+      ) AS has_col;
+    `);
+    const hasMidnight = !!colCheck.rows[0]?.has_col;
+
+    const sql = hasMidnight ? `
       SELECT 
         c.id,
         c.index_value,
@@ -22,7 +34,25 @@ router.get('/', async (req, res) => {
       FROM citizens c
       JOIN users u ON c.user_id = u.id
       ORDER BY c.index_value DESC
-    `);
+    ` : `
+      SELECT 
+        c.id,
+        c.index_value,
+        NULL::DECIMAL(10,2) AS index_value_midnight_utc,
+        c.stability_status,
+        c.last_updated,
+        u.alias,
+        u.reputation,
+        CASE 
+          WHEN c.last_updated < NOW() - INTERVAL '5 minutes' THEN 0
+          ELSE 1
+        END as is_active
+      FROM citizens c
+      JOIN users u ON c.user_id = u.id
+      ORDER BY c.index_value DESC
+    `;
+
+    const result = await db.query(sql);
     
     res.json({ citizens: result.rows });
   } catch (error) {
