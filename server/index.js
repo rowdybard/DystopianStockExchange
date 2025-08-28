@@ -1,5 +1,6 @@
 const express = require('express');
 const path = require('path');
+const fs = require('fs');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 require('dotenv').config();
@@ -33,10 +34,14 @@ app.get('/api/health', (req, res) => {
 // Serve frontend in production from client/dist
 if (process.env.NODE_ENV === 'production') {
   const distPath = path.join(__dirname, '..', 'client', 'dist');
-  app.use(express.static(distPath));
-  app.get('*', (req, res) => {
-    res.sendFile(path.join(distPath, 'index.html'));
-  });
+  if (fs.existsSync(distPath)) {
+    app.use(express.static(distPath));
+    app.get('*', (req, res) => {
+      res.sendFile(path.join(distPath, 'index.html'));
+    });
+  } else {
+    console.warn('Frontend build not found at', distPath);
+  }
 }
 
 // Error handling middleware
