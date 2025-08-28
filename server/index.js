@@ -31,17 +31,15 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'Dystopian Exchange Server Running' });
 });
 
-// Serve frontend in production from client/dist
-if (process.env.NODE_ENV === 'production') {
-  const distPath = path.join(__dirname, '..', 'client', 'dist');
-  if (fs.existsSync(distPath)) {
-    app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
-    });
-  } else {
-    console.warn('Frontend build not found at', distPath);
-  }
+// Serve frontend from client/dist when present (works in dev/CI too)
+const distPath = path.join(__dirname, '..', 'client', 'dist');
+if (fs.existsSync(distPath)) {
+  app.use(express.static(distPath));
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(distPath, 'index.html'));
+  });
+} else {
+  console.warn('Frontend build not found at', distPath);
 }
 
 // Error handling middleware

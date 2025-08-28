@@ -32,6 +32,8 @@ jobs:
         run: |
           npm run install-all
           npx playwright install --with-deps
+      - name: Wait for Postgres
+        run: npx wait-on tcp:localhost:5432
       - name: Init DB
         env:
           DATABASE_URL: postgresql://postgres:password@localhost:5432/dystopian_exchange
@@ -49,6 +51,8 @@ jobs:
           PORT: 3001
           DATABASE_URL: postgresql://postgres:password@localhost:5432/dystopian_exchange
           DISABLE_SCHEDULERS: true
+      - name: Wait for API
+        run: npx wait-on http://localhost:3001/api/health
       - name: Run E2E
         working-directory: client
         run: |
