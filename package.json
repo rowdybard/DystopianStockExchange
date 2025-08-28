@@ -9,7 +9,7 @@
     "client": "cd client && npm run dev",
     "build": "cd client && npm run build",
     "start": "cd server && npm start",
-    "install-all": "npm install && cd server && npm install && cd ../client && npm install",
+    "install-all": "npm install --include=dev && cd server && npm install --include=dev && cd ../client && npm install --include=dev",
     "db:setup": "cd server && npm run db:setup",
     "db:migrate": "cd server && npm run db:migrate"
   },
@@ -18,5 +18,8 @@
   "license": "MIT",
   "devDependencies": {
     "concurrently": "^8.2.2"
+  },
+  "engines": {
+    "node": ">=18"
   }
 }
